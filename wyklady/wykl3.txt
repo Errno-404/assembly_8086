@@ -1,0 +1,103 @@
+Ciąg dalszy wykładu:
+
+
+out 10, al tzn do portu 10 wysłać zawartość akumulatora
+
+in al, addr tzn do al wrzucić to co teraz na porcie siedzi
+
+in ax, dx  - wczytanie z portu o adresie dx
+out dx, ax
+
+
+
+
+
+bx <- bazowy zawiera przemieszczenie względem segmentu, tzn
+można zapisać tam mov bx, 4 push, pop i wgl, poza in/out
+
+
+mov ax, word ptr ds:[bx]
+mov word ptr es:[bx], ax
+
+
+Rejestr cx <- licznikowy taki counter
+
+
+mov bx, 0
+mov cx, 8
+pos1: 
+	add bx,3
+	loop POS1
+	
+mov cx, 10
+rep movsb <- instrukcja łańcuchowa oznacza załadowanie bajtu do komórki pamięci
+
+to wyżej znaczy, że wykona się 10 razy, np można wykasować fragment pamięci
+
+
+rejestr dx:
+	
+	w operacjach mnożenia i dzielenia
+	jedyny w którym można podać adres portu w rozkazach we/wykasować
+	
+
+mov dx, 100
+
+
+
+rejestry si i di
+
+
+zawierają zazwyczaj offsety, mogą być używane jako robocze
+
+
+
+mov si, offset S_ADDR
+mov di, offset D_ADDR
+mov cx, 10
+POS1:
+mov al, byte ptr ds:[si]
+mov byte ptr ds:[di], al
+inc si
+inc di
+loop POS1
+
+
+
+Rejest sp
+
+	push zmniejsza stackpointer o -2 (dla ax) a jak pobieram
+	to ściągam słowo do ax, a potem dodaję +2 czyli stos zmniejszam o 1
+	
+	
+	mov ax, 445
+	push ax
+	pop ax
+
+
+
+Rejestr IP wykorzystywany przez procesor (nie używamy go bezpośrednio)
+Każde wykonanie powoduje zmianę IP zwiększa się o tyle bajtów ile ma rozkazach
+np mov ax,16 zwiększy sie o 3 bajty, bo mov zakodowane w 1 bajt a ax to 2 bajty
+
+
+rejestr CS - segmentowy zawiera początek segmentu
+adresy to cs:ip
+
+
+skoki zmieniają IP, a CS zmienia się jeśl robimy skoki dalekie (do innego segmentu)
+call, jmp, ret, int tak działają
+
+
+
+
+ciekawostka, można zrobić kod który sam się zmienia w trakcie wywołania
+i mogą sobie ewoluować :> tak się robi wirusy niewykrywalne dla antywirusów np
+
+
+ds, es, ss używamy jako przedrostki przy adresowaniu pośrednim, nie można bezpośrednio wartości tam dawać
+
+
+rejestr znaczników next time better explained, jest 16 bitowy
+od 0 do 7 <- związane z cechą ostatniej arytm-log operacji,
+a te 8-15 <- znaczniki końcowe itd...
