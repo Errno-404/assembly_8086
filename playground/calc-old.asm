@@ -69,7 +69,7 @@ start1:
 	
 ; ============================================================================================================ ;
 
-word_counter	db	-1	; licznik słów
+word_counter	db	0	; licznik słów
 char_counter 	db  0	; licznik znaków
 prev_char		db	0 	; flaga czy poprzedni znak był spacją; 0 - spacja / tab, 1 - inny znak
 
@@ -127,30 +127,20 @@ skip_white:
 		
 		
 if_space:
-		; Ustawiamy informację, że poprzednim znakiem był znak biały
-		mov		al, 0
-		mov		bx, offset prev_char
-		mov		byte ptr cs:[bx], al
-		jmp		endif_space
-		
-
-if_not_space:
-		cmp		prev_char, 0 ; poprzedni znak był spacją
-		jnz		if_not_prev
+		; znak jest spacją - sprawdzamy, czy poprzedni znak nie był spacją
+		cmp		prev_char, 1
+		jnz		endif_space
 		
 
 if_prev:
-		; zmieniamy flagę poprzedniego znaku na znak, ponieważ jesteśmy w gałęzi znak == true && prev == spacja == true
-		mov		al, 1
+		; znak jest spacją oraz poprzedni znak nią nie był
+		; zmieniamy flagę poprzedniego znaku na przeciwną
+		mov		al, 0
 		mov		bx, offset prev_char
 		mov		byte ptr cs:[bx], al
 
 
 		; zwiększamy licznik słów
-		nop
-		
-		nop
-		nop
 		mov		bx, offset word_counter
 		mov		al, byte ptr cs:[bx]
 		inc 	al
@@ -161,12 +151,12 @@ if_prev:
 		mov		bx, offset char_counter
 		xor 	al,al
 		mov		byte ptr cs:[bx], al
-		jmp		endif_prev
+		jmp		endif_space
 
-if_not_prev:
-		jmp		endif_prev
 
-endif_prev:
+if_not_space:
+		; znak nie był spacją
+		; pobieramy liczbę słów
 		mov		bp, offset word_counter
 		xor		bx, bx
 		mov		bl, byte ptr cs:[bp]
@@ -177,8 +167,8 @@ endif_prev:
 		; ale wartość 3 może oznaczać, że po prostu po słowie ostatnim pojawiły się spacje,
 		; jednak jesteśmy w gałęzi "if_not_space", tzn trafiliśmy na coś co nie jest znakiem!,
 		; dlatego w tym miejscu wartość word_countera jako 3 jest błędna
-		cmp		bl, 2
-		jg		error
+		cmp		bl, 3
+		jge		error
 		
 		
 		; aby otrzymać właściwe przesunięcie musimy pomnożyć word_counter * 2
@@ -206,7 +196,10 @@ endif_prev:
 		mov		byte ptr ds:[bp + di], al
 		
 		
-		
+		; Ustawiamy informację, że poprzednim znakiem był znak inny niż biały (spacja / tab)
+		mov		al, 1
+		mov		bx, offset prev_char
+		mov		byte ptr cs:[bx], al
 		
 		
 		; Zwiększamy licznik znaków
@@ -224,13 +217,6 @@ endif_space:
 
 
 end_skip_white:	
-		; w tymi miejscu sprawdzamy czy mamy odpowiednie dane w 3 buforach gotowe do parsowania, jeśli nie, to error
-		mov		bp, offset word_counter
-		xor		ax, ax
-		mov		al, byte ptr cs:[bp]
-		cmp		ax, 2
-		jl		error
-
 		ret
 
 ; ======================================================================================================================== ;
@@ -248,8 +234,6 @@ parse_input:
 
 error:
 		; wypisuje błąd i wraca do systemu
-		xor		dx, dx
-		call	println
 		mov		dx, offset error_msg
 		call	print
 		mov 	ax, 4c00h
