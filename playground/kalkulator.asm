@@ -74,8 +74,6 @@ start1:
 		call 	initialize 	; ustawia tablice i wypisuje komunikat powitalny
 		call 	get_line	; pobiera linię do bufora 
 		call 	split_text 	; rozdziela słowa do 3 tablic lub zgłasza błąd, gdy liczba słów się nie zgadza
-		
-		
 		call 	parse_operation ; now ax contains proper value
 		
 		
