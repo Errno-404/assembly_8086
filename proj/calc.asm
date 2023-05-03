@@ -292,8 +292,8 @@ check_chars:
 		xor 	ax, ax
 		xor 	dx, dx
 	
-		mov		al, byte ptr ds:[bp + si]
-		mov		dl, byte ptr ds:[bx + di]
+		mov		dl, byte ptr ds:[bp + si]
+		mov		al, byte ptr ds:[bx + di]
 		cmp		ax, dx
 		jnz		s_not_equal
 	
@@ -314,7 +314,13 @@ is_not_end:
 		jmp		check_chars
 	
 s_not_equal:
-		; znaki nie są identyczne
+		; znaki nie są identyczne, sprawdźmy czy problem nie tkwi w wielkości litery! wiadomo, że dx jest małą literą!
+		push	dx
+		sub		dx, 20h
+		cmp		ax, dx
+		pop		dx
+		je		s_equal
+	
 		mov		al, 1
 		ret
 
@@ -338,13 +344,13 @@ p2:
 		mul		bx
 		mov		bp, ax
 		
-		; ustawiamy dx na offset badanego operandu
+		; ustawiamy bx na offset badanego operandu
 		mov		si, offset operand_offset
-		mov		dx, word ptr cs:[si]
+		mov		bx, word ptr cs:[si]
 		mov		si, offset numbers_offsets
 		
-		; bx przechowuje offset aktualnie badanej nazwy liczby z tablicy
-		mov		bx, word ptr ds:[si + bp]
+		; dx przechowuje offset aktualnie badanej nazwy liczby z tablicy
+		mov		dx, word ptr ds:[si + bp]
 		
 		call 	compare_strings
 		cmp		al, 0
