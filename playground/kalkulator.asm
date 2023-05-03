@@ -57,8 +57,9 @@ plus			db 	"plus$"
 minus			db  "minus$"
 times_			db  "razy$"
 
-numbers_offsets dw	27 dup(?)
-
+numbers_offsets dw	10 	dup(?)
+teens_offsets	dw 	10  dup(?)
+tens_offsets	dw 	7 	dup(?)
 
 
 result			db	?,"$"
@@ -69,6 +70,7 @@ data1 ends
 
 code1 segment
 start1:	
+
 		call 	initialize 	; ustawia tablice i wypisuje komunikat powitalny
 		call 	get_line	; pobiera linię do bufora 
 		call 	split_text 	; rozdziela słowa do 3 tablic lub zgłasza błąd, gdy liczba słów się nie zgadza
@@ -86,42 +88,11 @@ start1:
 		
 		
 		; to było do testów, ogółem to al -> wynik, ah -> znak
+		push	ax
+		call	get_string_result
+		pop		ax
 		
-		mov		bp, offset result
-		mov		byte ptr ds:[bp], al
-		mov		dx, offset result
-		call 	print
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		; testowanie
-		
-		
-		; testy
-		mov		dx, offset operand1
-		call 	println
-		
-		mov		dx, offset operator
-		call 	println
-		
-		mov		dx, offset operand2
-		call	print
-		
-		mov		dx, offset one
-		mov		bx, offset operand1
-		call 	compare_strings
-		
-		
-		
-	
+
 		mov 	ax, 4c00h
 		int		21h
 	
@@ -159,24 +130,27 @@ initialize:
 		mov		word ptr ds:[bp + 14], offset seven
 		mov		word ptr ds:[bp + 16], offset eight
 		mov		word ptr ds:[bp + 18], offset nine
-		mov		word ptr ds:[bp + 20], offset ten
-		mov		word ptr ds:[bp + 22], offset eleven
-		mov		word ptr ds:[bp + 24], offset twelve
-		mov		word ptr ds:[bp + 26], offset thirteen
-		mov		word ptr ds:[bp + 28], offset fourteen
-		mov		word ptr ds:[bp + 30], offset fifteen
-		mov		word ptr ds:[bp + 32], offset sixteen
-		mov		word ptr ds:[bp + 34], offset seventeen
-		mov		word ptr ds:[bp + 36], offset eighteen
-		mov		word ptr ds:[bp + 38], offset nineteen
-		mov		word ptr ds:[bp + 40], offset twenty
-		mov		word ptr ds:[bp + 42], offset thirty
-		mov		word ptr ds:[bp + 44], offset forty
-		mov		word ptr ds:[bp + 46], offset fifty
-		mov		word ptr ds:[bp + 48], offset sixty
-		mov		word ptr ds:[bp + 50], offset seventy
-		mov		word ptr ds:[bp + 52], offset eighty
-	
+		
+		mov		bp, offset teens_offsets
+		mov		word ptr ds:[bp], offset ten
+		mov		word ptr ds:[bp + 2], offset eleven
+		mov		word ptr ds:[bp + 4], offset twelve
+		mov		word ptr ds:[bp + 6], offset thirteen
+		mov		word ptr ds:[bp + 8], offset fourteen
+		mov		word ptr ds:[bp + 10], offset fifteen
+		mov		word ptr ds:[bp + 12], offset sixteen
+		mov		word ptr ds:[bp + 14], offset seventeen
+		mov		word ptr ds:[bp + 16], offset eighteen
+		mov		word ptr ds:[bp + 18], offset nineteen
+		
+		mov		bp, offset tens_offsets
+		mov		word ptr ds:[bp], offset twenty
+		mov		word ptr ds:[bp + 2], offset thirty
+		mov		word ptr ds:[bp + 4], offset forty
+		mov		word ptr ds:[bp + 6], offset fifty
+		mov		word ptr ds:[bp + 8], offset sixty
+		mov		word ptr ds:[bp + 10], offset seventy
+		mov		word ptr ds:[bp + 12], offset eighty
 		
 		
 		
@@ -491,9 +465,102 @@ not_times:
 
 
 after_parsing:
-		add		al, 30h
 		ret
 
+
+
+; input -> ax
+get_string_result:
+		cmp		ah, 0
+		jnz		negative_result
+positive_result:
+		jmp		both_results
+	
+negative_result:
+		mov		dx, offset minus
+		push 	ax
+		call	print
+		pop		ax
+both_results:
+		nop
+		nop
+		nop
+		mov		ah, 0
+		mov		bl, 10
+		div		bl
+		nop
+		nop
+		
+		cmp		al, 0
+		jnz 	not_digit
+		
+		
+		
+is_digit:
+		xor		bx, bx
+		mov		bl, ah
+		mov		ax, bx
+		mov		bx, 2
+		mul		bx
+		mov		si, ax
+		
+		mov		bp, offset numbers_offsets
+		mov		dx, word ptr ds:[bp + si]
+		call	print	
+		jmp		finish_get
+		
+
+not_digit:
+		; ah ma reszte, al liczbe dziesiatek
+		cmp		al, 1
+		jnz 	not_teen
+
+is_teen:
+		xor		bx, bx
+		mov		bl, ah
+		mov		ax, bx
+		mov		bx, 2
+		mul		bx
+		mov		si, ax
+		
+		mov		bp, offset teens_offsets
+		mov		dx, word ptr ds:[bp + si]
+		call	print	
+		jmp		finish_get
+
+not_teen:
+
+		push 	ax
+		
+		sub		al, 2
+		xor		bx, bx
+		mov		bl, al
+		mov		ax, bx
+		mov		bx, 2
+		mul		bx
+		mov		si, ax
+		
+		mov		bp, offset tens_offsets
+		mov		dx, word ptr ds:[bp + si]
+		call	print	
+		pop		ax
+		
+		xor		bx, bx
+		mov		bl, ah
+		mov		ax, bx
+		mov		bx, 2
+		mul		bx
+		mov		si, ax
+		
+		mov		bp, offset numbers_offsets
+		mov		dx, word ptr ds:[bp + si]
+		call	print	
+		
+		
+		
+		
+finish_get:
+		ret
 
 
 
