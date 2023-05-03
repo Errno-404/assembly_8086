@@ -2,28 +2,25 @@ data1 segment
 
 ; definiujemy wiadomość początkową, a także wiadomość błędu (zakładam, że wystarczy powiedzieć o błędzie a nie jaki typ)
 start_msg		db	"Wprowadz slowny opis dzialania: $"
-error_msg		db	"Error!$"
+error_msg		db	"Wystapil blad danych wejsciowych!$"
+result_msg		db 	"Wynikiem jest: $"
 
-
-; pomocniczo definiuję znak nowej linii
+; pomocniczo definiujemy znak nowej linii oraz znak spacji
 new_line		db	13, 10, "$"
+space_			db	" $"
 
-
-; definiuję bufor na wejście, w nim odbędzie się parsowanie. Bufor wypełniam wartościami $ dla systemu MS-DOS
+; definiujemy bufor na wejście, na nim odbędzie się parsowanie. Bufor wypełniamy wartościami $ dla systemu MS-DOS
 input_buf		db	200, ?, 210 dup ("$") 
 
-
-; definiuję "tablice" pomocnicze, do których trafią wyrazy po odrzuceniu spacji
+; definiujemy "tablice" pomocnicze, do których trafią wyrazy po odrzuceniu spacji i znaku tabulacji
 operand1		db	20 dup("$")
 operator		db	20 dup("$")
 operand2		db	20 dup("$")
 
-
-; definiuję "tablicę", która zawierać będzie offsety do powyższych tablic pomocniczych
+; definiujemy "tablicę", która zawierać będzie offsety do powyższych tablic pomocniczych
 expression		dw	3 dup(?)
 
-
-; TO BE DONE 
+; definiujemy potrzebne słowne nazwy cyfr 0,1, ..., 9
 zero			db	"zero$"
 one				db	"jeden$"
 two				db	"dwa$"
@@ -34,6 +31,8 @@ six				db	"szesc$"
 seven			db	"siedem$"
 eight			db	"osiem$"
 nine			db	"dziewiec$"
+
+; definiujemy słowne nazwy liczb 10, 11, ..., 19
 ten				db	"dziesiec$"
 eleven			db	"jedenascie$"
 twelve			db 	"dwandascie$"
@@ -44,6 +43,8 @@ sixteen			db	"szesnascie$"
 seventeen		db	"siedemnascie$"
 eighteen		db	"osiemnascie$"
 nineteen		db	"dziewietnascie$"
+
+; definiujemy nazwy dziesiątek 20, 30 ..., 80
 twenty			db	"dwadziescia$"
 thirty 			db	"trzydziesci$"
 forty 			db	"czterdziesci$"
@@ -52,57 +53,50 @@ sixty 			db	"szescdziesiat$"
 seventy			db	"siedemdziesiat$"
 eighty			db	"osiemdziesiat$"
 
-
+; definiujemy dostępne nazwy operatorów
 plus			db 	"plus$"
 minus			db  "minus$"
 times_			db  "razy$"
 
+; definiujemy tablice dla cyfr, "nastek" i dziesiątek
 numbers_offsets dw	10 	dup(?)
 teens_offsets	dw 	10  dup(?)
 tens_offsets	dw 	7 	dup(?)
 
-
-result			db	?,"$"
-
 data1 ends
 
-; ============================================================================================================ ;
+; ======================================================================================================================= ;
 
 code1 segment
 start1:	
-
-		call 	initialize 	; ustawia tablice i wypisuje komunikat powitalny
+		call 	initialize 	; wypełnia tablice odpowiednimi offsetami oraz wypisuje komunikat powitalny
 		call 	get_line	; pobiera linię do bufora 
 		call 	split_text 	; rozdziela słowa do 3 tablic lub zgłasza błąd, gdy liczba słów się nie zgadza
-		call 	parse_operation ; now ax contains proper value
+		call 	parse_operation ; parsuje wyrażenie i zwraca błąd w przypadku niepoprawnych danych wejściowych
+								; lub dla poprawnych danych wejściowych - rejestr ax przechowuje wynik w postaci:
+								; ah -> znak działania, al -> wartość bezwzględna działania
 		
-		
-		
-		push	ax
-		; new line
-		mov		dx, 0
-		call println
+		push	ax 			; korzystamy ze stosu aby zapisać wynik
+		xor		dx, dx		
+		call println		; funkcja wypisze pustą linię
 		pop		ax
 		
-		
-		; to było do testów, ogółem to al -> wynik, ah -> znak
-		push	ax
+		;	funkcja wyświetli słowny wynik działania
 		call	get_string_result
-		pop		ax
 		
-
+		; kończymy program z powodzeniem
 		mov 	ax, 4c00h
 		int		21h
 	
-; ============================================================================================================ ;
+; ======================================================================================================================= ;
 
-word_counter	db	-1	; licznik słów
+word_counter	db	-1	; licznik słów (ustawiany na wartość -1, w celu łatwiejszego parsowania)
 char_counter 	db  0	; licznik znaków
-prev_char		db	0 	; flaga czy poprzedni znak był spacją; 0 - spacja / tab, 1 - inny znak
+prev_char		db	0 	; flaga mówiąca czy poprzedni znak był spacją lub tabulatorem, 0 - spacja / tab, 1 - inny znak
 
-
+; funkcja inicjuje stos, wypełnia tablice offsetami oraz wypisuje tekst powitalny
 initialize:
-		; Ustawiamy stack pointera
+		; Ustawiamy stos
 		mov 	ax, seg stos1 
 		mov 	ss, ax
 		mov 	sp, offset wstos1
@@ -116,7 +110,7 @@ initialize:
 		mov		word ptr ds:[bp + 2], offset operator
 		mov		word ptr ds:[bp + 4], offset operand2
 		
-		; wpisujemy do tablicy numbers_offsets offsety liczb
+		; wpisujemy do tablic numbers_offsets, teens_ofsets oraz tens_offsets offsety odpowiednich liczb
 		mov		bp, offset numbers_offsets
 		mov		word ptr ds:[bp], offset zero
 		mov		word ptr ds:[bp + 2], offset one
@@ -150,16 +144,12 @@ initialize:
 		mov		word ptr ds:[bp + 10], offset seventy
 		mov		word ptr ds:[bp + 12], offset eighty
 		
-		
-		
-		
-		
 		; wyświetlamy komunikat powitalny
 		mov		dx, offset start_msg
 		call 	print
 		ret
 
-
+; funkcja pobiera linię do bufora 
 get_line:
 		; pobieramy linię tekstu do bufora
 		mov		ax, seg input_buf
@@ -169,14 +159,14 @@ get_line:
 		int		21h
 		ret
 
-
+; funkcja dokonuje wstępnej kontroli liczby słów i rozdziela podane słowa do odpowiednich tablic
 split_text:
-		; ustawiamy pętlę i rejestr si, który wskazuje na początek bufora i jest wykorzystywany w tej funkcji
+		; ustawiamy pętlę i rejestr si, który wskazuje na początek bufora i jest wykorzystywany później w tej funkcji
 		mov		ax, seg data1
 		mov		ds, ax
 		mov		si, offset input_buf
 		xor		cx, cx
-		mov		cl, byte ptr ds:[si + 1]
+		mov		cl, byte ptr ds:[si + 1] ; wpisujemy jako licznik pętli liczbę znaków pobranych do bufora
 		
 		
 		; ustawiamy si, aby wskazywał na pierwszy znak
@@ -186,19 +176,22 @@ split_text:
 skip_white:
 		; sprawdzamy czy obecnie badany znak jest spacją lub tabulatorem
 		push	cx
-		cmp		byte ptr ds:[si], ' ' ; input traversal
+		cmp		byte ptr ds:[si], ' '
 		jnz		if_not_space
 		
-		
-if_space:
+if_white:
 		; Ustawiamy informację, że poprzednim znakiem był znak biały
 		mov		al, 0
 		mov		bx, offset prev_char
 		mov		byte ptr cs:[bx], al
 		jmp		endif_space
 		
-
 if_not_space:
+		; sprawdzamy czy był to tabulator
+		cmp		byte ptr ds:[si], 9h
+		je 		if_white
+
+if_not_white:
 		cmp		prev_char, 0 ; poprzedni znak był spacją
 		jnz		if_not_prev
 		
@@ -211,10 +204,6 @@ if_prev:
 
 
 		; zwiększamy licznik słów
-		nop
-		
-		nop
-		nop
 		mov		bx, offset word_counter
 		mov		al, byte ptr cs:[bx]
 		inc 	al
@@ -231,16 +220,12 @@ if_not_prev:
 		jmp		endif_prev
 
 endif_prev:
+		; pobieramy wartość licznika słów 
 		mov		bp, offset word_counter
 		xor		bx, bx
 		mov		bl, byte ptr cs:[bp]
 		
-		; jeśli słów jest >= 3, tzn. że wpisano za dużo i można zgłosić błąd już teraz
-		; tutaj uwaga liczba słów zaczyna się od 0, dla łatwiejszego indeksowania, tzn.
-		; dla "jeden plus dwa" słowa zostaną zapisane do: tablicy pod indeksami 0, 1, 2
-		; ale wartość 3 może oznaczać, że po prostu po słowie ostatnim pojawiły się spacje,
-		; jednak jesteśmy w gałęzi "if_not_space", tzn trafiliśmy na coś co nie jest znakiem!,
-		; dlatego w tym miejscu wartość word_countera jako 3 jest błędna
+		; sprawdzamy czy słów jest więcej niż 3
 		cmp		bl, 2
 		jg		error
 		
@@ -269,18 +254,13 @@ endif_prev:
 		mov		al, byte ptr ds:[si]
 		mov		byte ptr ds:[bp + di], al
 		
-		
-		
-		
-		
 		; Zwiększamy licznik znaków
 		mov		bx, offset char_counter
 		mov		al, byte ptr cs:[bx]
 		inc 	al
 		mov		byte ptr cs:[bx], al
-		
-		
 		jmp		endif_space
+		
 endif_space:
 		inc 	si
 		pop		cx
@@ -297,10 +277,9 @@ end_skip_white:
 
 		ret
 
-; ======================================================================================================================== ;
+; ======================================================================================================================= ;
 
-; input dx -> string one
-; input bx -> stirng two (offsets)
+; funkcja porównuje 2 napisy o offsetach podanych jako dx oraz bx i zwraca w rejestrze al -> 0 jeśli są identyczne, 1 w p.p.
 compare_strings:
 		mov		ax, seg data1
 		mov		ds, ax
@@ -319,39 +298,39 @@ check_chars:
 		jnz		s_not_equal
 	
 s_equal:
-	; characters are equal
+		; znaki są identyczne
 		mov		cl, "$"
 		cmp		al, cl
 		jnz		is_not_end
 	
 is_end:
+		; oba znaki są znacznikami końca ($)
 		mov		al, 0
 		ret
 is_not_end:
-		; znaki te same ale nie $, wiec badamy kolejne
+		; znaki są takie same ale nie są znakami końca danych ($), wiec badamy kolejne
 		inc		si
 		inc		di
 		jmp		check_chars
 	
 s_not_equal:
+		; znaki nie są identyczne
 		mov		al, 1
 		ret
 
 
+; funkcja parsująca operand, offset badanego operandu podajemy w dx
 operand_offset		dw	0
 parse_input:
-		; poprzez dx operanda offset dajemy
-		
 		mov		si, offset operand_offset
 		mov		word ptr cs:[si], dx
 	
 		mov		ax, seg data1
-		mov		ds, ax
-		
-		 ; to string do sprawdzenia -> dx nie zmieniamy tutaj poki co		
+		mov		ds, ax	
 		
 		mov		cx, 10
 p2:		
+		; ustalamy indeks odpowieniej cyfry z tablicy
 		push 	cx
 		mov		ax, 10
 		sub		ax, cx
@@ -359,26 +338,26 @@ p2:
 		mul		bx
 		mov		bp, ax
 		
-		
+		; ustawiamy dx na offset badanego operandu
 		mov		si, offset operand_offset
 		mov		dx, word ptr cs:[si]
 		mov		si, offset numbers_offsets
 		
-		
-		
+		; bx przechowuje offset aktualnie badanej nazwy liczby z tablicy
 		mov		bx, word ptr ds:[si + bp]
-		; mamy bx i dx do porównania już
-		call 	compare_strings
 		
+		call 	compare_strings
 		cmp		al, 0
 		jnz		not_found
 		
 found_:
+		; operand znaleziony -> zwracamy jego indeks w rejestrze ax
 		pop		cx
 		mov		ax, 10
 		sub		ax, cx
 		ret
 not_found:
+		; operand nieznaleziony -> kontynuujemy poszukiwania
 		pop		cx
 		loop	p2
 
@@ -386,25 +365,24 @@ not_found:
 		jmp		error
 		ret
 		
-		
-		;przed pętlą w jednym rejestrze powinien być offset do operanda a w drugim do offsetu do tablicy offsetów
-		
-		
-		
-left_op		db 	0
-right_op	db  0
+
+; funkcja parsuje operator i następnie wykonuje zadaną operację, zwraca wynik przez rejestr ax
+left_op		db 	0 ; offset lewego operanda
+right_op	db  0 ; offset prawego operanda
 parse_operation:
+		; parsujemy a następnie pobieramy lewy operand
 		mov		dx, offset operand1
 		call	parse_input
 		mov		bp, offset left_op
 		mov		byte ptr cs:[bp], al
 		
+		; parsujemy i pobieramy prawy operand
 		mov		dx, offset operand2
 		call 	parse_input
 		mov		bp, offset right_op
 		mov		byte ptr cs:[bp], al
 		
-		
+		; sprawdzamy czy operator jest dodawaniem
 		mov		bx, offset operator
 		mov		dx, offset plus
 		call 	compare_strings	
@@ -413,6 +391,7 @@ parse_operation:
 		jnz		not_plus
 		
 is_plus:
+		; operator jest dodawaniem, wykonujemy je
 		mov		bp, offset left_op
 		mov		al, byte ptr cs:[bp]
 		mov		bp, offset right_op
@@ -427,6 +406,7 @@ not_plus:
 		jnz		not_minus
 		
 is_minus:
+		; operator jest odejmowaniem, wykonujemy je a następnie sprawdzamy znak działania
 		mov		bp, offset left_op
 		mov		al, byte ptr cs:[bp]
 		mov		bp, offset right_op
@@ -438,6 +418,7 @@ is_minus:
 		jmp		after_parsing
 		
 is_negative:
+		; jeśli wynik jest ujemny, to ustawiamy w ah informację o tym a w al zwracamy wartość bezwzględną
 		add		al, bl
 		sub		bl, al
 		mov		al, bl
@@ -450,6 +431,7 @@ not_minus:
 		cmp		al, 0
 		jnz		not_times
 is_times:
+		; operator jest mnożeniem, wykonujemy je
 		mov		bp, offset left_op
 		mov		al, byte ptr cs:[bp]
 		mov		bp, offset right_op
@@ -459,42 +441,47 @@ is_times:
 		jmp		after_parsing
 
 not_times:
+		; jeśli operator nie jest żadnym z powyższych, to wystąpił błąd
 		jmp		error
 
 
 after_parsing:
 		ret
 
-
-
-; input -> ax
+; funkcja wypisuje słowny wynik działania 
 get_string_result:
+		push	ax
+		mov		ax, seg data1
+		mov		ds, ax
+		mov		dx, offset result_msg
+		call	print
+		pop		ax
+		
 		cmp		ah, 0
 		jnz		negative_result
 positive_result:
 		jmp		both_results
 	
 negative_result:
-		mov		dx, offset minus
+		; jeśli wynik był ujemny, to wypisujemy słowo "minus"
 		push 	ax
+		mov		dx, offset minus
 		call	print
+		mov		dx, offset space_
+		call 	print
 		pop		ax
+		
 both_results:
-		nop
-		nop
-		nop
+		; dzielimy z resztą wartość bezwzględną z wyniku, np: 47 // 10 = 4 * 10 + 7
 		mov		ah, 0
 		mov		bl, 10
 		div		bl
-		nop
-		nop
 		
 		cmp		al, 0
 		jnz 	not_digit
 		
-		
-		
 is_digit:
+		; jeśli wynik zawiera tylko cyfrę (liczba dziesiątek == 0)
 		xor		bx, bx
 		mov		bl, ah
 		mov		ax, bx
@@ -506,14 +493,13 @@ is_digit:
 		mov		dx, word ptr ds:[bp + si]
 		call	print	
 		jmp		finish_get
-		
-
+	
 not_digit:
-		; ah ma reszte, al liczbe dziesiatek
 		cmp		al, 1
 		jnz 	not_teen
 
 is_teen:
+		; jeśli jest "nastką", tzn. ma liczbę dziesiątek równą 1
 		xor		bx, bx
 		mov		bl, ah
 		mov		ax, bx
@@ -527,10 +513,9 @@ is_teen:
 		jmp		finish_get
 
 not_teen:
-
+		; liczba jest dwucyfrowa (20 - 81)
 		push 	ax
-		
-		sub		al, 2
+		sub		al, 2 ; obliczamy indeks dziesiątek
 		xor		bx, bx
 		mov		bl, al
 		mov		ax, bx
@@ -543,6 +528,14 @@ not_teen:
 		call	print	
 		pop		ax
 		
+		cmp		ah, 0
+		jnz		not_full_tens
+		jmp		finish_get
+not_full_tens:
+		push 	ax
+		mov		dx, offset space_
+		call 	print
+		pop		ax
 		xor		bx, bx
 		mov		bl, ah
 		mov		ax, bx
@@ -554,48 +547,39 @@ not_teen:
 		mov		dx, word ptr ds:[bp + si]
 		call	print	
 		
-		
-		
-		
 finish_get:
 		ret
 
-
-
+; funkcja wypisuje błąd danych wejściowych
 error:
-		; wypisuje błąd i wraca do systemu
 		xor		dx, dx
 		call	println
 		mov		dx, offset error_msg
 		call	print
-		mov 	ax, 4c00h
+		mov		ah, 4ch
+		mov		al, 1h
 		int		21h
 
-
+; funkcja wypisuje zawartość dx (tego co pod tym offsetem w segmencie danych się znajduje)
 print:
-		; wypisuje zawartość dx
 		mov		ax, seg data1
 		mov		ds, ax
 		mov		ah, 9
 		int 	21h
 		ret
 
-
+; funkcja po wywołaniu `print` wypisuje pustą linię
 println:
-		; wypisuje zawartość dx oraz znak nowej linii
 		call 	print
 		mov		dx, offset new_line
 		call 	print
 		ret
 
-		
 code1 ends
-
 
 stos1 segment stack
 		dw		300	dup (?)
 wstos1	dw		?
 stos1 ends
-
 
 end start1
