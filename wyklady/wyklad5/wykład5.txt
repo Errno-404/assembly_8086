@@ -1,0 +1,87 @@
+Dyrektywy:
+
+
+- org
+- assume
+- equ
+- =
+- end
+- include 
+- db, dw, dd, dq, dt
+- proc, endp
+
+dt ma 10 bajtów (jak liczba float w fpu)
+
+
+(uwaga zamiast kompilacji masm można użyć takiej, która zamieni dosłownie kod napisany na pamięć i wtedy ta etykieta end start nie ma znaczenia; programy .com można uruchomić w dowolnym
+segmencie, a musi się zaczynać od offsetu 256)
+
+ORG:
+	- od którego miejsca w pamięci ma się zacząć program, zastępuje start: i end start i to org 100h jest potrzebne żeby się .com plik zrobił.
+	  możemy używać jej jako takiej pauzy w pamięci (wolne miejsce użyć na dane np można).
+
+ASSUME (nie używać lepiej) - assume cs:Code, DS:Dane1, ES:Obraz1 -> to nam deklaruje, że zakładamy, gdzie są dane, kod itp. czyli zakładam sobie, że tak będzie
+
+EQU:
+	- takie #define dosłownie, fajne dla zamiany "cyfry" na cyfrę w kodzie
+=:
+	- to samo co equ, ale wielokrotne, tzn można zrobić licz = 10 liczy = licz - 1 (ale to dalej jest jako define, więc nie można zrobić w pętli tego!)
+include:
+	- usage: include moj_program.asm (takie include z C)
+dt:
+	- wszystko w fpu jest na dt! (80 bitów)
+
+
+proc:
+	- usage: nazwa proc typ (typ jest near lub far)
+	- zakończenie: nazwa endp
+	- near -> znajduje się w tym samym segmencie, na stos wędruje jedynie offset
+	- far -> wykracza poza segment, na stos trafia segment + offset, żeby było wiadome gdzie wrócić, ale ret jest takie samo (chociaż binarnie są to 2 różne instrukcje)
+
+
+
+
+
+
+========================================================================================== FPU ==========================================================================================
+1. Historia
+	Mamy procesor 8086, FPU było osobnym układem dołączanym na płycie głównej komputera
+  	między fpu i cpu jest magistrala
+	dla cpu istnieje sekwencja escapowa np. 9Bh mówi wait for fpu, czyli przekaż sterowanie do fpu, ale my nie musimy pisać 9Bh.
+
+	Tu będziemy finit używać jako zainicjowanie fpu, czyli przygotowuje fpu do pierwszego uruchomienia i on ma 9Bh a potem coś kolejnego (to co jest init), czyli 9Bh poprzedza
+	rozkazy które mają się dziać na fpu
+
+
+2. Budowa / działanie
+	Ma 8 rejestrów o nazwach R0, R1, ..., R7, każdy 80-bitowy w reprezentacji [znak(1)|cecha(15)|mantysa(64)], ale nie ma dostępu do każdego z nich, bo te rejestry są układane w stos
+	czyli FWS (wierzchołek stosu fpu) jest na R7 i zmniejsza się w stronę malejących adresów (kiedy wrzucamy coś na stos).
+	
+3. ONP (odwrócona notacja polska)
+	a + b -> a b + ona jest wygodna dla fpu i tak się z niego korzysta :)
+
+4. Dostęp do zmiennych ?
+	S(0), S(1), ..., S(7), a wierzchołek jest w S(0)! i uwaga na przepełnienie, bo się zapętla jak rewolwer xD
+
+5. Przesyłanie danych
+	fld (f load) -> wrzuca na stos liczbę zmiennoprzecinkową, ale musimy ją wcześniej przygotować, więc istnieje odmiana:
+	fild word ptr ds:[10], liczba spod tego adresu jest castowana na float, a do ściągania (ale w postaci integer!):
+	fist word ptr es:[zm1], w locie konwersja floa -> word integer, ale to nie ściąga ze stosu1, stąd taki twór:
+	fistp word ptr es:[zm1] i tutaj stos zmienia się o 1 (nie o 2 jak w cpu), bo tu minimalne słowo jest 80-bitowe
+
+6. Inne operacje
+	fdiv
+	fcos
+	ftg
+
+	np. mamy już a, potem robie ftg na tym i fist -> wyliczy mi cosinus jako integer
+
+
+
+
+
+
+
+
+
+			    

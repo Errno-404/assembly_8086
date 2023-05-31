@@ -19,15 +19,6 @@ start1:
 		mov		si, 10 * 160 + 40*2
 		
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 		; tu nie ma kodów ascii dla klawiatury tylko scancody som
 
 p1:		
@@ -39,14 +30,9 @@ p1:
 		cmp		al, byte ptr cs:[k1]
 		je		p1
 		
-		
 		mov		byte ptr cs:[k1], al
-		
 		mov		byte ptr es:[si], ' '
 		mov		byte ptr es:[si +1], 00000000b
-		
-		
-		
 		
 		
 		
@@ -75,20 +61,12 @@ p4:
 		add		si, 160
 		
 p5:
-		
-		
 		mov		byte ptr es:[si], 1
 		mov		byte ptr es:[si +1], 00000100b
-		
-		
 		jmp		p1
 
 		
 koniec:
-		
-		
-	
-
 		mov 	ax, 4c00h
 		int		21h
 

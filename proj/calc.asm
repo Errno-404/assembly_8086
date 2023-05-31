@@ -8,6 +8,7 @@ result_msg		db 	"Wynikiem jest: $"
 ; pomocniczo definiujemy znak nowej linii oraz znak spacji
 new_line		db	13, 10, "$"
 space_			db	" $"
+blank_			db	"$"
 
 ; definiujemy bufor na wejście, na nim odbędzie się parsowanie. Bufor wypełniamy wartościami $ dla systemu MS-DOS
 input_buf		db	200, ?, 210 dup ("$") 
@@ -77,7 +78,7 @@ start1:
 								; ah -> znak działania, al -> wartość bezwzględna działania
 		
 		push	ax 			; korzystamy ze stosu aby zapisać wynik
-		xor		dx, dx		
+		mov		dx, offset blank_		
 		call println		; funkcja wypisze pustą linię
 		pop		ax
 		
@@ -89,10 +90,6 @@ start1:
 		int		21h
 	
 ; ======================================================================================================================= ;
-
-word_counter	db	-1	; licznik słów (ustawiany na wartość -1, w celu łatwiejszego parsowania)
-char_counter 	db  0	; licznik znaków
-prev_char		db	0 	; flaga mówiąca czy poprzedni znak był spacją lub tabulatorem, 0 - spacja / tab, 1 - inny znak
 
 ; funkcja inicjuje stos, wypełnia tablice offsetami oraz wypisuje tekst powitalny
 initialize:
@@ -148,6 +145,10 @@ initialize:
 		mov		dx, offset start_msg
 		call 	print
 		ret
+
+word_counter	db	-1	; licznik słów (ustawiany na wartość -1, w celu łatwiejszego parsowania)
+char_counter 	db  0	; licznik znaków
+prev_char		db	0 	; flaga mówiąca czy poprzedni znak był spacją lub tabulatorem, 0 - spacja / tab, 1 - inny znak
 
 ; funkcja pobiera linię do bufora 
 get_line:
@@ -292,13 +293,14 @@ check_chars:
 		xor 	ax, ax
 		xor 	dx, dx
 	
+		; pobieramy znaki znajdujące się na tych samych pozycjach w obu napisach w celu porównania
 		mov		dl, byte ptr ds:[bp + si]
 		mov		al, byte ptr ds:[bx + di]
 		cmp		ax, dx
 		jnz		s_not_equal
 	
 s_equal:
-		; znaki są identyczne
+		; znaki są identyczne, sprawdzamy, czy są znacznikiem końca danych
 		mov		cl, "$"
 		cmp		al, cl
 		jnz		is_not_end
@@ -316,7 +318,7 @@ is_not_end:
 s_not_equal:
 		; znaki nie są identyczne, sprawdźmy czy problem nie tkwi w wielkości litery! wiadomo, że dx jest małą literą!
 		push	dx
-		sub		dx, 20h
+		sub		dx, 20h ; różnica pomiędzy kodem ASCII 'a' i 'A', to 20h
 		cmp		ax, dx
 		pop		dx
 		je		s_equal
@@ -325,7 +327,8 @@ s_not_equal:
 		ret
 
 
-; funkcja parsująca operand, offset badanego operandu podajemy w dx
+; funkcja parsująca operand, offset badanego operandu podajemy w dx, wynik trafi do tablicy operand1 lub operand2 w zależności od
+; podanego offsetu w rejestrze dx
 operand_offset		dw	0
 parse_input:
 		mov		si, offset operand_offset
@@ -538,10 +541,15 @@ not_teen:
 		jnz		not_full_tens
 		jmp		finish_get
 not_full_tens:
+		; jeśli liczba nie kończy się zerem, to wypisać należy cyfrę (np. dwadzieścia JEDEN, bez tego if-a, wynikiem mogłoby być
+		; "dwadzieścia zero")
+		; wypisujemy spację
 		push 	ax
 		mov		dx, offset space_
 		call 	print
 		pop		ax
+		
+		; ustalamy indeks dla danej liczby
 		xor		bx, bx
 		mov		bl, ah
 		mov		ax, bx
